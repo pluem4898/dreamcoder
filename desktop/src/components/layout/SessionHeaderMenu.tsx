@@ -23,6 +23,7 @@ export function SessionHeaderMenu({ sessionId, title }: SessionHeaderMenuProps) 
   const [renameValue, setRenameValue] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const addToast = useUIStore((state) => state.addToast)
 
   const submitRename = async () => {
     const next = renameValue.trim()
@@ -32,10 +33,15 @@ export function SessionHeaderMenu({ sessionId, title }: SessionHeaderMenuProps) 
   }
 
   const confirmDelete = async () => {
-    await useSessionStore.getState().deleteSession(sessionId)
-    useChatStore.getState().disconnectSession(sessionId)
-    useTabStore.getState().closeTab(sessionId)
-    setConfirmingDelete(false)
+    try {
+      await useSessionStore.getState().deleteSession(sessionId)
+      useChatStore.getState().disconnectSession(sessionId)
+      useTabStore.getState().closeTab(sessionId)
+    } catch {
+      addToast({ type: 'error', message: t('sidebar.deleteFailed') })
+    } finally {
+      setConfirmingDelete(false)
+    }
   }
 
   const actions: MenuAction[] = [

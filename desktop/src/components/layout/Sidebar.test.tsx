@@ -78,6 +78,7 @@ vi.mock('../../i18n', () => ({
       'sidebar.timeGroup.older': 'Older',
       'sidebar.missingDir': 'Missing',
       'sidebar.confirmDelete': 'Delete this session? This cannot be undone.',
+      'sidebar.deleteFailed': 'Failed to delete session',
       'sidebar.batchManage': 'Batch manage',
       'sidebar.batchSelectedCount': '{count} selected',
       'sidebar.batchSelectAll': 'Select all',
@@ -1026,6 +1027,36 @@ describe('Sidebar', () => {
 
     expect(useTabStore.getState().tabs).toEqual([])
     expect(useTabStore.getState().activeTabId).toBeNull()
+  })
+
+  it('closes the dialog and shows an error when deleting a session fails', async () => {
+    deleteSession.mockRejectedValue(new Error('network unavailable'))
+    useSessionStore.setState({
+      sessions: [
+        makeSession(
+          'session-1',
+          'Open Session',
+          '/workspace/project',
+          new Date().toISOString(),
+        ),
+      ],
+    })
+
+    render(<Sidebar />)
+    fireEvent.contextMenu(screen.getByRole('button', { name: /^Open Session/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    const dialog = await screen.findByRole('alertdialog')
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    })
+
+    await waitFor(() => expect(addToast).toHaveBeenCalledWith({
+      type: 'error',
+      message: 'Failed to delete session',
+    }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(disconnectSession).not.toHaveBeenCalled()
   })
 
   it('selects and deletes multiple sessions from batch mode', async () => {

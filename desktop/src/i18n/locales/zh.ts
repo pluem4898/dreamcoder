@@ -92,6 +92,7 @@ export const zh: Record<TranslationKey, string> = {
   'sidebar.sessionRunning': '会话运行中',
   'sidebar.missingDir': '目录缺失',
   'sidebar.confirmDelete': '确定要删除这个会话吗？此操作不可撤销。',
+  'sidebar.deleteFailed': '删除会话失败',
   'sidebar.batchManage': '批量管理',
   'sidebar.batchSelectedCount': '已选 {count} 个',
   'sidebar.batchSelectAll': '全选',

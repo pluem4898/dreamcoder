@@ -164,31 +164,28 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   deleteSession: async (id: string) => {
-    await sessionsApi.delete(id)
-    useSessionRuntimeStore.getState().clearSelection(id)
-    useWorkspacePanelStore.getState().clearSession(id)
-    set((s) => ({
-      sessions: s.sessions.filter((session) => session.id !== id),
-      activeSessionId: s.activeSessionId === id ? null : s.activeSessionId,
-      selectedSessionIds: removeIdsFromSet(s.selectedSessionIds, [id]),
-    }))
+    try {
+      await sessionsApi.delete(id)
+    } catch (error) {
+      if (!isSessionNotFoundError(error)) throw error
+    }
+    removeSessions([id], set)
   },
 
   deleteSessions: async (ids: string[]) => {
     const sessionIds = [...new Set(ids)].filter(Boolean)
     const result = await sessionsApi.batchDelete(sessionIds)
-    for (const id of result.successes) {
-      useSessionRuntimeStore.getState().clearSelection(id)
-      useWorkspacePanelStore.getState().clearSession(id)
+    const missing = result.failures
+      .filter((failure) => failure.code === 'NOT_FOUND')
+      .map((failure) => failure.sessionId)
+    const successes = [...result.successes, ...missing]
+    removeSessions(successes, set)
+    return {
+      ...result,
+      ok: result.failures.every((failure) => failure.code === 'NOT_FOUND'),
+      successes,
+      failures: result.failures.filter((failure) => failure.code !== 'NOT_FOUND'),
     }
-    set((s) => ({
-      sessions: s.sessions.filter((session) => !result.successes.includes(session.id)),
-      activeSessionId: s.activeSessionId && result.successes.includes(s.activeSessionId)
-        ? null
-        : s.activeSessionId,
-      selectedSessionIds: removeIdsFromSet(s.selectedSessionIds, result.successes),
-    }))
-    return result
   },
 
   enterBatchMode: () => set({ isBatchMode: true }),
@@ -237,6 +234,31 @@ function removeIdsFromSet(selected: Set<string>, ids: string[]): Set<string> {
   const next = new Set(selected)
   for (const id of ids) next.delete(id)
   return next
+}
+
+function isSessionNotFoundError(error: unknown): error is { status: number } {
+  return typeof error === 'object' && error !== null && 'status' in error && error.status === 404
+}
+
+function removeSessions(
+  ids: string[],
+  set: (
+    partial: Partial<SessionStore> | ((state: SessionStore) => Partial<SessionStore>),
+  ) => void,
+): void {
+  if (ids.length === 0) return
+  const removed = new Set(ids)
+  for (const id of removed) {
+    useSessionRuntimeStore.getState().clearSelection(id)
+    useWorkspacePanelStore.getState().clearSession(id)
+  }
+  set((state) => ({
+    sessions: state.sessions.filter((session) => !removed.has(session.id)),
+    activeSessionId: state.activeSessionId && removed.has(state.activeSessionId)
+      ? null
+      : state.activeSessionId,
+    selectedSessionIds: removeIdsFromSet(state.selectedSessionIds, ids),
+  }))
 }
 
 function preserveLocalTitle(

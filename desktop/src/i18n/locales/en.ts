@@ -90,6 +90,7 @@ export const en = {
   'sidebar.sessionRunning': 'Session running',
   'sidebar.missingDir': 'missing dir',
   'sidebar.confirmDelete': 'Delete this session? This cannot be undone.',
+  'sidebar.deleteFailed': 'Failed to delete session',
   'sidebar.batchManage': 'Batch manage',
   'sidebar.batchSelectedCount': '{count} selected',
   'sidebar.batchSelectAll': 'Select all',

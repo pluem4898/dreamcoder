@@ -229,6 +229,40 @@ describe('sessionStore', () => {
     expect(useSessionStore.getState().sessions).toEqual([recentSession])
   })
 
+  it('removes an already deleted session when the server returns 404', async () => {
+    const doomed = session('already-deleted')
+    useSessionStore.setState({ sessions: [doomed], activeSessionId: doomed.id })
+    deleteMock.mockRejectedValue(
+      Object.assign(new Error('Session not found'), { status: 404 }),
+    )
+
+    await useSessionStore.getState().deleteSession(doomed.id)
+
+    expect(useSessionStore.getState().sessions).toEqual([])
+    expect(useSessionStore.getState().activeSessionId).toBeNull()
+  })
+
+  it('treats missing sessions as successful in batch deletion', async () => {
+    const missing = session('already-deleted')
+    const existing = session('deleted-now')
+    useSessionStore.setState({ sessions: [missing, existing], activeSessionId: missing.id })
+    batchDeleteMock.mockResolvedValue({
+      ok: false,
+      successes: [existing.id],
+      failures: [{ sessionId: missing.id, message: 'Session not found', code: 'NOT_FOUND' }],
+    })
+
+    const result = await useSessionStore.getState().deleteSessions([missing.id, existing.id])
+
+    expect(result).toEqual({
+      ok: true,
+      successes: [existing.id, missing.id],
+      failures: [],
+    })
+    expect(useSessionStore.getState().sessions).toEqual([])
+    expect(useSessionStore.getState().activeSessionId).toBeNull()
+  })
+
   it.each(['single', 'batch'] as const)('closes the browser of a session after a %s deletion', async (mode) => {
     const doomed = session('with-browser')
     useSessionStore.setState({ sessions: [doomed] })
